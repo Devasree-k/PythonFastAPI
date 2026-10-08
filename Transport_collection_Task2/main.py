@@ -19,26 +19,19 @@ from router.transport_collection_router import (
 
 
 app = FastAPI(
-
-    title="Transport Collection Management API",
-
+    title="Transport Collection System ",
     description=(
         "FastAPI + PostgreSQL "
         "Transport Collection Management System"
     ),
-
     version="1.0.0"
 )
 
 
-app.include_router(
-    transport_router
-)
-
+app.include_router( transport_router )
 
 @app.get("/")
 async def home():
-
     return {
         "message":
         "Transport Collection API is running"

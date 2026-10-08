@@ -4,11 +4,13 @@ from repositories.transport_collection_repository import(
     get_collection_by_id,
     insert_collection,
     update_collection,
+    patch_collection,
     delete_collection
 )
 from schema.transport_collection_schema import(
     TransportCollectionCreate,
     TransportCollectionUpdate,
+    TransportCollectionPatch,   
     TransportCollectionResponse
 )
 from exceptions.transport_collection_exception import TransportCollectionNotFoundException
@@ -34,12 +36,9 @@ def row_to_collection(row):
         "net_collection": float(row[13])
     }
 
-    return TransportCollectionResponse.model_validate(
-        data
-    )
+    return TransportCollectionResponse.model_validate( data )
 
 async def get_collections():
-
     rows = await get_all_collections()
 
     return [
@@ -47,13 +46,8 @@ async def get_collections():
         for row in rows
     ]
 
-async def get_collection(
-    collection_id: int
-):
-
-    row = await get_collection_by_id(
-        collection_id
-    )
+async def get_collection( collection_id: int):
+    row = await get_collection_by_id( collection_id)
 
     if row is None:
 
@@ -66,109 +60,112 @@ async def get_collection(
     return row_to_collection(row)
 
 
-async def create_collection(
-    collection: TransportCollectionCreate
-):
+async def create_collection(collection: TransportCollectionCreate):
 
-    total_trips = (
-        collection.morning_trips
-        + collection.evening_trips
-    )
-
-    total_collection = (
-        collection.morning_collection
-        + collection.evening_collection
-    )
-
-    total_expense = (
-        collection.fuel_expense
-        + collection.other_expense
-    )
-
-    net_collection = (
-        total_collection
-        - total_expense
-    )
-
+    total_trips = ( collection.morning_trips + collection.evening_trips)
+    total_collection = (collection.morning_collection + collection.evening_collection)
+    total_expense = (collection.fuel_expense + collection.other_expense )
+    net_collection = ( total_collection - total_expense )
     data = collection.model_dump()
-
     data["total_trips"] = total_trips
-
     data["total_collection"] = total_collection
-
     data["total_expense"] = total_expense
-
     data["net_collection"] = net_collection
 
-    row = await insert_collection(
-        data
-    )
-
+    row = await insert_collection( data)
     return row_to_collection(row)
 
 
-async def update_existing_collection(
+async def update_existing_collection( collection_id: int, collection: TransportCollectionUpdate):
+
+    existing = await get_collection_by_id(collection_id )
+    if existing is None:
+        # raise HTTPException(
+        #     status_code=404,
+        #     detail="Transport collection not found"
+        # )
+        raise TransportCollectionNotFoundException(collection_id)
+
+
+    total_trips = (collection.morning_trips + collection.evening_trips)
+    total_collection = (collection.morning_collection + collection.evening_collection)
+    total_expense = ( collection.fuel_expense + collection.other_expense)
+    net_collection = ( total_collection - total_expense)
+    data = collection.model_dump()
+    data["total_trips"] = total_trips
+    data["total_collection"] = total_collection
+    data["total_expense"] = total_expense
+    data["net_collection"] = net_collection
+
+
+    row = await update_collection( collection_id, data)
+    return row_to_collection(row)
+
+async def patch_existing_collection(
     collection_id: int,
-    collection: TransportCollectionUpdate
+    collection: TransportCollectionPatch
 ):
-
-    existing = await get_collection_by_id(
-        collection_id
-    )
+    existing = await get_collection_by_id(collection_id)
 
     if existing is None:
-
-        # raise HTTPException(
-        #     status_code=404,
-        #     detail="Transport collection not found"
-        # )
         raise TransportCollectionNotFoundException(collection_id)
 
+    data = collection.model_dump(exclude_unset=True)
 
-    total_trips = (
-        collection.morning_trips
-        + collection.evening_trips
+    if not data:
+        raise  HTTPException(
+            status_code=400,
+            detail="At least one field must be provided for PATCH"
+        )
+
+    updated_data = {
+        "vehicle_number": data.get("vehicle_number", existing[1]),
+        "collection_date": data.get("collection_date", existing[2]),
+        "driver_name": data.get("driver_name", existing[3]),
+        "morning_trips": data.get("morning_trips", existing[4]),
+        "evening_trips": data.get("evening_trips", existing[5]),
+        "morning_collection": data.get(
+            "morning_collection", existing[6]
+        ),
+        "evening_collection": data.get(
+            "evening_collection", existing[7]
+        ),
+        "fuel_expense": data.get(
+            "fuel_expense", existing[8]
+        ),
+        "other_expense": data.get(
+            "other_expense", existing[9]
+        )
+    }
+
+    updated_data["total_trips"] = (
+        updated_data["morning_trips"]
+        + updated_data["evening_trips"]
     )
 
-    total_collection = (
-        collection.morning_collection
-        + collection.evening_collection
+    updated_data["total_collection"] = (updated_data["morning_collection"] + updated_data["evening_collection"]
     )
 
-    total_expense = (
-        collection.fuel_expense
-        + collection.other_expense
+    updated_data["total_expense"] = (
+        updated_data["fuel_expense"]
+        + updated_data["other_expense"]
     )
 
-    net_collection = (
-        total_collection
-        - total_expense
+    updated_data["net_collection"] = (
+        updated_data["total_collection"]
+        - updated_data["total_expense"]
     )
 
-    data = collection.model_dump()
-
-    data["total_trips"] = total_trips
-
-    data["total_collection"] = total_collection
-
-    data["total_expense"] = total_expense
-
-    data["net_collection"] = net_collection
-
-    row = await update_collection(
+    row = await patch_collection(
         collection_id,
-        data
+        updated_data
     )
 
     return row_to_collection(row)
 
-async def delete_existing_collection(
-    collection_id: int
-):
+async def delete_existing_collection( collection_id: int):
 
-    existing = await get_collection_by_id(
-        collection_id
-    )
+    existing = await get_collection_by_id( collection_id )
 
     if existing is None:
 
@@ -179,11 +176,10 @@ async def delete_existing_collection(
         raise TransportCollectionNotFoundException(collection_id)
 
 
-    deleted_id = await delete_collection(
-        collection_id
-    )
+    deleted_id = await delete_collection( collection_id)
 
     return {
         "message": "Transport collection deleted successfully",
         "collection_id": deleted_id
     }
+

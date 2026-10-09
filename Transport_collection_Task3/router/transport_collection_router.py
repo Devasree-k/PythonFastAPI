@@ -2,7 +2,8 @@ from fastapi import (
     APIRouter,
     Path,
     status,
-    HTTPException
+    HTTPException,
+    Query
 )
 
 from schema.transport_collection_schema import (
@@ -30,8 +31,11 @@ router = APIRouter(
 
 
 @router.get( "/")
-async def get_all():
-    collections = await get_collections()
+async def get_all(
+    page:int = Query(default=1, ge=1),
+    limit:int = Query(default=3, ge=1, le=20)
+):
+    collections = await get_collections(page,limit)
     return collections
 
 

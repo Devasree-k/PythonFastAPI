@@ -6,7 +6,7 @@ from router.transport_collection_router import (
 
 
 app = FastAPI(
-    title="Transport Collection System ",
+    title="Transport Collection System Updated",
     description=(
         "FastAPI + PostgreSQL "
         "Transport Collection Management System"

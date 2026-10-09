@@ -5,7 +5,8 @@ from repositories.transport_collection_repository import(
     insert_collection,
     update_collection,
     patch_collection,
-    delete_collection
+    delete_collection,
+    get_total_collections_count
 )
 from schema.transport_collection_schema import(
     TransportCollectionCreate,
@@ -38,23 +39,36 @@ def row_to_collection(row):
 
     return TransportCollectionResponse.model_validate( data )
 
-async def get_collections():
-    rows = await get_all_collections()
+# async def get_collections(limit:int, offset:int):
+#     rows = await get_all_collections(limit, offset)
 
-    return [
-        row_to_collection(row)
-        for row in rows
-    ]
+#     return [
+#         row_to_collection(row)
+#         for row in rows
+#     ]
+
+async def get_collections(page :int , limit: int):
+    offset = (page-1)*limit
+    rows = await get_all_collections(limit, offset)
+    total_records = await get_total_collections_count()
+    total_pages = (total_records/limit)
+    return {
+        "page" : page,
+        "limit" : limit,
+        "total_records" : total_records,
+        "total_pages": total_pages,
+        "has_previous": page > 1,
+        "has_next": page < total_pages,
+        "data": [
+            row_to_collection(row)
+            for row in rows
+        ] 
+    }
 
 async def get_collection( collection_id: int):
     row = await get_collection_by_id( collection_id)
 
     if row is None:
-
-        # raise HTTPException(
-        #     status_code=404,
-        #     detail="Transport collection not found"
-        # )
         raise TransportCollectionNotFoundException(collection_id)
 
     return row_to_collection(row)
@@ -80,10 +94,6 @@ async def update_existing_collection( collection_id: int, collection: TransportC
 
     existing = await get_collection_by_id(collection_id )
     if existing is None:
-        # raise HTTPException(
-        #     status_code=404,
-        #     detail="Transport collection not found"
-        # )
         raise TransportCollectionNotFoundException(collection_id)
 
 
@@ -144,11 +154,6 @@ async def delete_existing_collection( collection_id: int):
     existing = await get_collection_by_id( collection_id )
 
     if existing is None:
-
-        # raise HTTPException(
-        #     status_code=404,
-        #     detail="Transport collection not found"
-        # )
         raise TransportCollectionNotFoundException(collection_id)
 
 
